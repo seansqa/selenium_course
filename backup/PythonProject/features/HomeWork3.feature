@@ -31,3 +31,9 @@ Feature: eBay.com regression
     Given Go to eBay.com
     And   Header navigation: click "Watchlist"
     Then Verify "sign in" page is loaded
+
+  Scenario: Test My eBay navigation
+    Given Go to eBay.com
+    And   Header navigation: hover over "My eBay"
+    When Select "Summary" option
+    Then Verify "sign in" page is loaded

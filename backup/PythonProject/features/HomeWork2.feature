@@ -5,6 +5,15 @@ Feature: eBay.com regression
     Then Verify "Deals" page is loaded
 
 
+  Scenario: Validate "My eBay" dropdown
+    Given Go to eBay.com
+    When Hover over the "My eBay" dropdown
+    And Select "Summary" option
+    Then Sign in page opens
+
+
+
+
   Scenario: Validate Brand Outlet link
     Given Go to eBay.com
     When Locate "Brand Outlet" and click
@@ -32,10 +41,3 @@ Feature: eBay.com regression
     Given Go to eBay.com
     When Locate "Watchlist" and click
     Then Verify "sign in" notification is displayed
-
-  Scenario: Validate "My eBay" dropdown
-    Given Go to eBay.com
-    When Hover over the "My eBay" dropdown
-    And Select "Summary" option
-    Then Sign in page opens
-
