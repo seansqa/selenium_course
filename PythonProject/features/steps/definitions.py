@@ -1,15 +1,22 @@
 import warnings
 from time import sleep
 from behave import step
-from selenium import webdriver
+from selenium.webdriver import ActionChains
+# from selenium import webdriver  # moved to environment.py
 # from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 
+# @step('Navigate to Google')
+# def test(context):
+#     driver = webdriver.Chrome()
+#     driver.get('https://google.com')
+
 @step('Go to eBay.com')  # very sensitive
 def test(context):
+    # import pdb; pdb.set_trace()
     context.driver.get(context.URL)   # navigate to the webpage
     context.driver.implicitly_wait(2)
 
@@ -20,7 +27,7 @@ def validate_first_result(context):
 
 @step('the first result item is "Dress"')
 def yet_another_first_result(context):
-    context.driver.find_element(By.XPATH, "//span[text() = 'Printed Maxi Dress - Tube Style']")
+    context.driver.find_element(By.XPATH, "//span[text() = 'All Saints Maisie speckle dress chiffon crepe splatter shift ruffle cream XSmall']")
 
 
 #   Locate Daily Deals and Click
@@ -44,18 +51,18 @@ def verify_deal_title(context):
 def test_def(context, good):
     element = context.driver.find_elements(By.ID, "gh-ac")  # [Elements] or []
     if element:
-            element[0].send_keys(good)
+            element[0].send_keys(good)  # or element.send.keys(good) ?
     else:
         raise Exception("search-field not found")
 
 
-# Explicit wait
+                                        # Explicit Wait
+
 @step('Click the "Search" button')
 def main_screen_submit_button(context):
     search_button = context.wait.until(EC.presence_of_element_located((By.XPATH, "//button[@value = 'Search']")), message='Search button missing')
     # search_button = context.driver.find_element(By.XPATH, "//button[@value = 'Search']")    # without Explicit wait
     search_button.click()   # selenium cmd to emulate click
-
 
 
 @step('Filter "{filter_name}" by "{option}"')
@@ -91,7 +98,8 @@ def test_data(context):
     print(headers)
     print(rows)
 
-# For Loop
+                                         # For Loop
+
 @step('Item list should have only "{search_item}" related')
 def final(context, search_item):
     items_on_page = context.driver.find_elements(By.XPATH, "//div[@class = 's-item__title']")
@@ -99,7 +107,6 @@ def final(context, search_item):
         if search_item.lower() not in item.text.lower():
             #raise ValueError(f'Item {item.text} does not have "dress"')
             raise Exception(f'Item {item.text.lower()} is not related to {search_item.lower()}')
-
 
 
 @step('Every item is "{condition}"')
@@ -110,7 +117,7 @@ def items_validation(context, condition):
     for each in items:
         if condition not in each.text:
             print(each.text)
-
+                                            # While Loop
 
 @step('Every item is "{condition}" for first "{page_num}" pages')
 def check_few_pages(context, condition, page_num):
@@ -198,3 +205,241 @@ def check_many_filters(context):
     # if any errors caught -> fire exception
     if errors:
         raise Exception('\n'.join(errors))
+
+
+                                #   Lesson 9a
+
+@step('Every item spec relates to following filters')
+def collect_specs_and_check(context):
+    expectations_dict = {row['filter']: row['option'] for row in context.table}     # one-line option of ^
+
+    # collect all items from search result
+    items = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//li[contains(@id,'item')]")))
+
+    # placeholder for all errors
+    errors = []
+
+    # context.driver.windows_handles   # gives list of ID for every tab / window
+    main_page = context.driver.current_window_handle  # gets current page URL
+
+    # loop through each item
+    for item in items:
+        title = item.find_element(By.XPATH, ".//span[@role = 'heading']").text
+        link = item.find_element(By.XPATH, ".//a[@class = 's-item__link']").get_attribute('href')
+
+        # open link and switch to new tab / window
+        context.driver.execute_script(f"window.open('{link}')")
+        context.driver.switch_to.window(context.driver.window_handles[-1])    # the last one, i.e. the newest
+
+        # collect all specs
+        keys = {key.text for key in context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dt[contains(@class, 'ux-labels')]//span[text()]")))}
+        values = {value.text for value in context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dd[contains(@class, 'ux-labels')]//span[contains(@class, 'ux-textspans')][not(ancestor::span[@data-testid = 'ux-bubble-help'])][not(ancestor::button)][not (ancestor::span[@aria-hidden='true'])]")))}
+        item_specs = dict(zip(keys, values))
+
+        ## do the check
+        # is_expectation_matched = item_specs.items() <= expectations_dict.items()    # bool  ## this is another option of the code below (lines 239-243)
+        # if not is_expectation_matched:
+        #     errors.append(f'Item "{title}" not related to the search')
+
+        for k, v in expectations_dict.items():
+            if k not in item_specs.keys():
+                errors.append(f'Item "{title}" does not have {k} in its specification')
+            elif v != item_specs[k]:
+                errors.append(f'Item "{title}" has {item_specs[k]} instead of {v}')
+
+
+
+        # function to close currently focused tab / window
+        context.driver.close()
+
+        # refocus to main screen
+        context.driver.switch_to.window(main_page)
+
+    # if any errors caught -> fire exception
+    if errors:
+        raise Exception('\n'.join(errors))
+
+
+                                 #   Lesson 9b
+
+@step('Collect item specs')
+def collect_specs(context):
+    features_keys = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dt[contains(@class, 'ux-labels')]//span[text()]")))
+    features_values = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dd[contains(@class, 'ux-labels')]//span[contains(@class, 'ux-textspans')][not(ancestor::span[@data-testid = 'ux-bubble-help'])][not(ancestor::button)][not (ancestor::span[@aria-hidden='true'])]")))
+
+    # keys = {key.text for key in context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dt[contains(@class, 'ux-labels')]//span[text()]")))}
+    # values = {value.text for value in context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "///dd[contains(@class, 'ux-labels')]//span[contains(@class, 'ux-textspans')][not(ancestor::span[@data-testid = 'ux-bubble-help'])][not(ancestor::button)][not (ancestor::span[@aria-hidden='true'])]")))}
+    #item_specs = dict(zip(keys, values))
+
+    text_keys = []
+    for key in features_keys:
+        text_keys.append(key.text)
+
+
+    text_values = []
+    for value in features_values:
+        text_values.append(value.text)
+
+    item_specs = dict(zip(text_keys, text_values))
+
+    print(item_specs)
+
+
+# @step('Every dress spec relates to following filters')
+# def collect_dress_specs_and_check(context):
+#     expectations_dict = {row['filter']: row['option'] for row in context.table}
+#
+#     # collect all items from search result
+#     items = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//li[contains(@id,'item')]")))
+#
+#     # placeholder for all errors
+#     errors = []
+#
+#     main_page = context.driver.current_window_handle  # gets current page URL
+#
+#     # loop through each item
+#     for item in items:
+#         title = item.find_element(By.XPATH, ".//span[@role = 'heading']").text
+#         link = item.find_element(By.XPATH, ".//a[@class = 's-item__link']").get_attribute('href')
+#
+#         # open link and switch to new tab / window
+#         context.driver.execute_script(f"window.open('{link}')")
+#         context.driver.switch_to.window(context.driver.window_handles[-1])  # the last one, i.e. the newest
+#
+#     specs_keys = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dt[contains(@class, 'ux-labels')]//span[text()]")))
+#     specs_values = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//dd[contains(@class, 'ux-labels')]")))
+#
+#     text_keys =[]
+#     for key in specs_keys:
+#         text_keys.append(key.text)
+#
+#     text_values = []
+#     for value in specs_values:
+#         text_values.append(value.text)
+#
+#     item_specs = dict(zip(text_keys, text_values))
+#     #print(item_specs)
+#     for k, v in expectations_dict.items():
+#         if k not in item_specs.keys():
+#             errors.append(f'Item "{title}" does not have {k} in its specification')
+#         elif v != item_specs[k]:
+#             errors.append(f'Item "{title}" has {item_specs[k]} instead of {v}')
+#
+#         # function to close currently focused tab / window
+#     context.driver.close()
+#
+#     # refocus to main screen
+#     context.driver.switch_to.window(main_page)
+#
+#     # if any errors caught -> fire exception
+#
+#
+#     if errors:
+#         raise Exception('\n'.join(errors))
+
+#                    #  Lesson  10 (Hover over)
+
+@step('test flyout menu for option "{menu_option}"')
+def test_flyout_menu(context, menu_option):
+    sleep(2)
+    option = context.wait.until(EC.presence_of_element_located((By.XPATH, "//ul[@class = 'vl-flyout-nav__container']//li[.//a[text() = 'Motors']]")))
+
+    action = ActionChains(context.driver)
+    action.move_to_element(option).perform()
+    sleep(2)
+
+
+#  Game Cards Pile and Cards Slots
+@step('solve the game')
+def solve(context):
+    cards = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//div[@id = 'cardPile']/div")))
+    placeholder = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//div[@id = 'cardSlots']/div")))
+
+    for card in cards:
+        # get the card number
+        card_number = card.text  # str
+        true_number = int(card_number)
+        target_slot = placeholder[true_number-1]
+
+        ActionChains(context.driver).drag_and_drop(card, target_slot).perform()
+
+#  Game Shopping Mall
+
+# @step('Go through each floor and collect data on each location')
+# def check_many_filters(context):
+#     # import pdb; pdb.set_trace()
+#     # for floor in ['ground', 'first', 'second']:
+#
+#     ground_floor = context.wait.until(EC.presence_of_element_located((By.XPATH, "//*[@id = 'MLOC-stores-ground']")))
+#
+#     shops_on_floor = context.wait.until(EC.presence_of_all_elements_located((By.XPATH, ".//*[@id = 'MLOC-stores-ground']//polygon")))
+#
+#
+#     # items = context.wait.until(EC.presence_of_element_located((By.XPATH, "// *[ @ id = \"a102\"]")))
+#     # // *[ @ id = "MLOC-anchors-ground"]
+#     import pdb;
+#     pdb.set_trace()
+#     print(shops_on_floor)
+
+
+# Target website
+
+@step('In search-field type in "gift"')
+def element_gift(context):
+    element = context.driver.find_element(By.XPATH, "//input[@id = 'search']")
+    element.send_keys("gift")
+
+@step('Click "Search" icon')
+def click_search(context):
+    search_icon = context.driver.find_element(By.XPATH, "//button[@aria-label = 'search']")
+    search_icon.click()
+    sleep(5)
+
+@step('Click shopping for "Him" option')
+def select_for_him_button(context):
+    #for_him_option = context.wait.until(EC.presence_of_element_located((By.XPATH, "//div[@data-test = 'navItemTitleComponent']//span[text() = 'Him']")))
+    for_him_option = context.driver.find_element(By.XPATH, "//span[text() = 'Him']")
+    # action = ActionChains(context.driver)
+    # action.move_to_element(for_him_option).perform()
+    for_him_option.click()
+    sleep(1)
+
+
+@step('Click "Gifts under $25"')
+def select_gift(context):
+    gift_under = context.driver.find_element(By.XPATH, "//div[@data-test = 'navItemTitleComponent']//span[text() = 'Gifts under $25']").click()
+    #gift_under.click()
+    sleep(2)
+
+@step('List all items under $20')
+def items_validation(context):
+    price_elements = context.driver.find_elements(By.XPATH,
+                                         "//div[@data-test = 'product-details']//span[@data-test = 'current-price']") # [Element1, Element2...]
+
+    items_below_20 = []
+
+    for price_element in price_elements:
+        price_text = price_element.text.strip()
+        if '$' in price_text:
+            price_text = price_text.replace('$', '').strip()
+
+            try:
+                price = float(price_text)
+
+                if price < 20:
+                    item_name = price_element.find_element(By.XPATH, "//div/a[@data-test = 'product-title']").text
+
+                    items_below_20.append({'name': item_name, 'price': price})
+            except ValueError:
+                continue
+
+    for item in items_below_20:
+        print(f"Item: {item['name']}, Price: {item['price']}")
+
+#context.driver.quit()
+
+
+    #
+    # for each in items:
+    #     if price not in each.text:
+    #         print(each.text)
