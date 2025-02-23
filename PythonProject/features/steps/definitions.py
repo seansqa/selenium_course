@@ -7,6 +7,8 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support.ui import Select
+#warnings.filterwarnings("ignore", message=".*LibreSSL.*")
 
 
 # @step('Navigate to Google')
@@ -19,6 +21,12 @@ def test(context):
     # import pdb; pdb.set_trace()
     context.driver.get(context.URL)   # navigate to the webpage
     context.driver.implicitly_wait(2)
+
+# @step('Go to aquanow.io')  # very sensitive
+# def test(context):
+#     # import pdb; pdb.set_trace()
+#     context.driver.get('https://admin-dev.aquanow.io/dashboard')   # navigate to the webpage
+#     context.driver.implicitly_wait(2)
 
 @step('the first result item is "iPhone"')
 def validate_first_result(context):
@@ -438,8 +446,213 @@ def items_validation(context):
 
 #context.driver.quit()
 
-
     #
     # for each in items:
     #     if price not in each.text:
     #         print(each.text)
+
+
+    #            #AQUANOW project
+
+#  @step('Navigate to Development Dashboard page')
+#  def test(context):
+#      context.driver.get("https://admin-dev.aquanow.io/dashboard")
+# #
+# @step('Enter Visitor password')
+# def password(context):
+#     element = context.driver.find_element(By.XPATH, "//*[@id='bottom-section']/form/label/input")
+#     element.send_keys("9tzx9fCp3k9i4o4-4eVDKKUL")
+#     sleep(1)
+#
+# @step('Click Log in')
+# def log_in(context):
+#     select_log_in = context.driver.find_element(By.XPATH, "//*[@id='bottom-section']/form/div/button").click()
+#
+# @step('Sign in to Aquanow account')
+# def enter_your_username(context):
+#     username = context.driver.find_element(By.XPATH, "//*[@id='amplify-id-:r1:']")
+#     username.send_keys("seansqa+1@gmail.com")
+#     sleep(1)
+#
+# @step('Enter your Password into Aquanow account')
+# def enter_your_password(context):
+#     password_field = context.driver.find_element(By.XPATH, "//*[@id='amplify-id-:r4:']")
+#     password_field.send_keys("Telu$008Canad@")
+#     sleep(1)
+#
+#
+# @step('Select Sign in to Aquanow account')
+# def sign_in(context):
+#     signin = context.driver.find_element(By.XPATH, "//*[@id='__next']/div//form/div/button").click()
+#    sleep(60)
+
+
+# Generate OTP code
+
+import base64
+import hmac
+import hashlib
+import struct
+import time
+
+# Function to decode the base32 key
+def base32_decode(encoded_key):
+    return base64.b32decode(encoded_key.upper())
+
+# Function to generate TOTP
+def generate_totp(secret_key):
+    # Constants
+    time_step = 30  # 30 seconds interval for TOTP
+    digits = 6  # Length of the OTP (6 digits)
+
+    # Step 1: Get the current timestamp
+    timestamp = int(time.time() // time_step)
+
+    # Step 2: Convert timestamp to bytes (big-endian)
+    counter = struct.pack(">Q", timestamp)
+
+    # Step 3: Create HMAC-SHA1 hash
+    key = base32_decode(secret_key)
+    hmac_hash = hmac.new(key, counter, hashlib.sha1).digest()
+
+    # Step 4: Extract the dynamic offset from the hash
+    offset = hmac_hash[19] & 0xf
+
+    # Step 5: Extract the 4-byte dynamic code
+    code = struct.unpack(">I", hmac_hash[offset:offset + 4])[0] & 0x7fffffff
+
+    # Step 6: Generate OTP by taking the modulus
+    otp = code % (10 ** digits)
+
+    # Step 7: Return OTP as a 6-digit string (padded with zeros if necessary)
+    return str(otp).zfill(digits)
+
+
+@step('Generate OTP code')
+def otp(context):
+    key = "JSE4TEV2RN7SPCUEY255ULZAIJ5QP2OBFZQLU6L6D6FUA6HMH3NA"  # Replace with your actual key
+    otp_code = generate_totp(key)
+    otp_field = context.driver.find_element(By.XPATH, "//input[@id='amplify-id-:r7:']")
+    otp_field.send_keys(otp_code)
+
+
+@step('Click Confirm button')
+def confirm_otp(context):
+    confirm_button = context.driver.find_element(By.XPATH, "//button[@type = 'submit']")
+    confirm_button.click()
+    sleep(1)
+
+#-------------------------------------------------------------------------------------------------------
+
+@step('In Dashboard page')  # very time sensitive
+def test(context):
+    context.driver.get('https://admin-dev.aquanow.io/dashboard')
+    sleep(1)
+
+@step('Enter Visitor password')
+def password(context):
+    element = context.driver.find_element(By.XPATH, "//*[@id='bottom-section']/form/label/input")
+    element.send_keys("9tzx9fCp3k9i4o4-4eVDKKUL")
+    sleep(1)
+
+@step('Click Log in')
+def log_in(context):
+    select_log_in = context.driver.find_element(By.XPATH, "//*[@id='bottom-section']/form/div/button").click()
+
+@step('Sign in to Aquanow account')
+def enter_your_username(context):
+    username = context.driver.find_element(By.XPATH, "//*[@id='amplify-id-:r1:']")
+    username.send_keys("seansqa+1@gmail.com")
+    sleep(1)
+
+@step('Enter your Password into Aquanow account')
+def enter_your_password(context):
+    password_field = context.driver.find_element(By.XPATH, "//*[@id='amplify-id-:r4:']")
+    password_field.send_keys("Telu$008Canad@")
+    sleep(1)
+
+@step('Select Sign in to Aquanow account')
+def sign_in(context):
+    signin = context.driver.find_element(By.XPATH, "//*[@id='__next']/div//form/div/button").click()
+    sleep(10)
+
+# Enter OTP code manually
+
+@step('Expand Shared Services')
+def shared_services_item(context):
+    shared_services = context.driver.find_element(By.XPATH, "//div//span[text() = 'Shared Services']")
+    shared_services.click()
+
+@step('Select Banking Services')
+def sidebar_item(context):
+    banking_services = context.driver.find_element(By.XPATH, "//div//span[text() = 'Banking Services']")
+    banking_services.click()
+    sleep(3)
+
+@step('Select Filters')
+def filter_item(context):
+    filter_button = context.driver.find_element(By.XPATH, "//button[@id = ':r3t:'][@aria-label = 'Show filters']")
+    filter_button.click()
+    sleep(1)
+
+@step('Select Remove All')    #to clear filter
+def clear_filter(context):
+    remove_all = context.driver.find_element(By.XPATH, "//button[text() = 'Remove all']")
+    remove_all.click()
+    sleep(3)
+
+@step('Select Add Filter')
+def add_filter(context):
+    add_to_filter = context.driver.find_element(By.XPATH, "//button[text() = 'Add filter']")
+    add_to_filter.click()
+    sleep(1)
+
+@step('Click Columns dropdown')
+def columns_dropdown(context):
+    columns = context.driver.find_element(By.XPATH, "//div[@id=':r3u:']/div//div[1]/div[3]")
+    columns.click()
+    sleep(1)
+
+@step('Choose Mapping Status from Column dropdown')
+def choose_mapping_status(context):
+    mapping_status = context.driver.find_element(By.XPATH, "//*[@id=':r4p:']/option[8]")
+    mapping_status.click()
+    sleep(2)
+
+ # Find transactions with failed mapping status
+@step('Click Value dropdown')
+def value_dropdown(context):
+    value = context.driver.find_element(By.XPATH, "//*[@id=':r3u:']//div[1]/div[5]/div")
+    value.click()
+    sleep(1)
+
+@step('Choose "Failure" from Value dropdown')
+def choose_failure(context):
+    value_failure = context.driver.find_element(By.XPATH, "//div[@class = 'css-1rh95vz']//*/option[3]")
+    value_failure.click()
+
+
+# @step('Close the Filters tab')
+# def close_filter(context):
+#     filters_tab = context.driver.find_element(By.XPATH, "//button[@aria-label = 'Delete']//*[@data-testid = 'CloseIcon']")
+#     filters_tab.click()
+
+
+
+
+
+# import ssl
+# print(ssl.OPENSSL_VERSION)
+#
+# import requests
+# response = requests.get('https://www.google.com')
+# print(response.status_code)
+
+#
+# Error: No such keg: /opt/homebrew/Cellar/libressl
+# ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'requirements.txt'
+
+# # Under QR code (a new one): AIM6HE265C4OXFLDGU3P43MMOVAGPJRHPLEFPTE4UCJNUGY66A4Q
+
+# import pdb
+# pdb.set_trace()
